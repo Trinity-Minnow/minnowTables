@@ -9,7 +9,18 @@ License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
 URL: https://github.com/Trinity-Minnow/minnowTables
 BugReports: https://github.com/Trinity-Minnow/minnowTables/issues
 Imports: 
-    magrittr
+    dplyr,
+    graphics,
+    grDevices,
+    magrittr,
+    openxlsx,
+    openxlsx2,
+    stats,
+    tibble,
+    tools,
+    utils,
+    xml2,
+    zip
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
