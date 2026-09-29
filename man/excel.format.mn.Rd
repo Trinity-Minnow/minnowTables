@@ -9,15 +9,16 @@ excel.format.mn(
   xx,
   sheetNm,
   header,
-  dat.row = 4,
+  dat.row = max(header.row) + 1,
   header.row = c(3, 4),
   merged.cells = c(1, 2),
   thin.lines.cols = 1,
-  thin.lines.rows = 3,
+  thin.lines.rows = max(header.row),
   caption,
   col.widths = NULL,
   note = paste0("Note: \\"-\\" = no data."),
-  shading.rows = 0
+  shading.rows = 0,
+  grid.lines = TRUE
 )
 }
 \arguments{

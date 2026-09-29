@@ -39,286 +39,128 @@
 #'   dat.row = 4, header.row = 3, merged.cells = c(1, 2),
 #'   caption = "Table 1. Summary statistics")
 #' }
-excel.format.mn = function(wb,
-                            xx,
-                            sheetNm,
-                            header, # list of table column headers
-                            dat.row=4, # row that data write on
-                            header.row=c(3,4), # header row
-                            merged.cells=c(1,2), # which cols need to be merged
-                            thin.lines.cols= 1, # solid thin lines on columns
-                            thin.lines.rows=3, # solid thin lines on rows
-                            caption, # table caption
-                            col.widths = NULL, # optional column widths (same units passed to setColWidths()) -
-                                           # when given, the caption row is measured with estimate_wrapped_lines()
-                                           # and sized to its real wrapped line count instead of staying clipped
-                                           # to one default-height row
-                            note =paste0("Note: \"-\" = no data."),# list of notes that need to be in
-                            shading.rows=0 # number of LEADING `note` lines that are shading-legend lines -
-                                           # their text is written to column 2 instead of column 1, leaving
-                                           # column 1 clear for a colour swatch the caller draws there
-){
-  
-  addWorksheet(wb, sheetNm)  
-  
-  
-  # Table dimensions
+excel.format.mn <- function(wb, xx, sheetNm, header,
+                            dat.row = max(header.row) + 1,          # FIX 1
+                            header.row = c(3, 4),
+                            merged.cells = c(1, 2),
+                            thin.lines.cols = 1,
+                            thin.lines.rows = max(header.row),      # FIX 5
+                            caption,
+                            col.widths = NULL,
+                            note = paste0("Note: \"-\" = no data."),
+                            shading.rows = 0,
+                            grid.lines = TRUE) {
+
+  xx <- as.data.frame(dplyr::ungroup(xx))
   total_rows <- nrow(xx)
   total_cols <- ncol(xx)
-  
-  
-  # Write table starting at row 2 (row 1 could be caption)
-  writeData(wb, sheet = sheetNm, xx, startRow = dat.row, startCol = 1,colNames = FALSE)
-  
-  # font Arial and size 10 --------------------------------------------------
-  
-  
-  # Create a style for Arial, size 10
-  arial_style <- createStyle(fontName = "Arial", fontSize = 10)
-  
-  # Apply style to all table cells (headers + data)
-  addStyle(
-    wb, 
-    sheet = sheetNm,
-    style = arial_style,
-    rows = 1:(total_rows +max(header.row)),  # adjust: +1 for header row, +1 if needed
-    cols = 1:total_cols,
-    gridExpand = TRUE, stack = TRUE
-  )
-  
-  # centered all cells except 1st column
-  
-  # Apply style to all table cells (headers + data)
-  addStyle(
-    wb, 
-    sheet = sheetNm,
-    style =  createStyle(halign = "center", valign = "center"),
-    rows = 1:(total_rows + max(header.row)),  # adjust: +1 for header row, +1 if needed
-    cols = 1:total_cols,
-    gridExpand = TRUE, stack = TRUE
-  )
-  
-  
-  # dotted line and centered for the whole table ----------------------------
-  
-  # 1️⃣ Dotted lines for the whole table (inside)
-  dotted_style <- createStyle(
-    border = c("top", "bottom", "left", "right"),
-    borderStyle = "hair"
-  )
-  
-  addStyle(wb,sheetNm, style = dotted_style,
-           rows = 3:(total_rows+max(header.row)), cols = 1:total_cols,
-           gridExpand = TRUE, stack = TRUE)
-  
-  
-  # build  header adn bold them------------------------------------------------------
-  for (i in 1:length(header)){
-    # browser()
-    #i=1
-    header_top =  header[i][[1]]
-    
-    
-    
-    writeData(wb,sheetNm, t(header_top), startRow =header.row[i], colNames = FALSE)
-    
-    highlight_style <- createStyle(
-      textDecoration = "bold",
-      border = c("top", "bottom","left", "right"),
-      borderStyle ="hair",
-      halign = "center"
-    )
-    
-    addStyle(wb, sheetNm, style =    highlight_style,
+
+  # FIX 1 - checks
+  if (length(header) != length(header.row))
+    stop("`header` has ", length(header), " rows but `header.row` has ", length(header.row), " rows.")
+  if (dat.row <= max(header.row))
+    stop("`dat.row` (", dat.row, ") must be below the last header row (", max(header.row), "), ",
+         "otherwise the header overwrites the data.")
+
+  top_row  <- min(header.row)              # FIX 5
+  last_row <- dat.row + total_rows - 1     # FIX 4
+
+  addWorksheet(wb, sheetNm, gridLines = grid.lines)
+
+  writeData(wb, sheet = sheetNm, xx, startRow = dat.row, startCol = 1, colNames = FALSE)
+
+  # font and alignment
+  addStyle(wb, sheet = sheetNm, style = createStyle(fontName = "Arial", fontSize = 10),
+           rows = 1:last_row, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+  addStyle(wb, sheet = sheetNm, style = createStyle(halign = "center", valign = "center"),
+           rows = 1:last_row, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+
+  # hair inner lines
+  addStyle(wb, sheetNm, style = createStyle(border = c("top", "bottom", "left", "right"), borderStyle = "hair"),
+           rows = top_row:last_row, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)   # FIX 5
+
+  # header rows
+  for (i in seq_along(header)) {
+    writeData(wb, sheetNm, t(header[[i]]), startRow = header.row[i], colNames = FALSE)
+    addStyle(wb, sheetNm,
+             style = createStyle(textDecoration = "bold", border = c("top", "bottom", "left", "right"),
+                                 borderStyle = "hair", halign = "center"),
              rows = header.row[i], cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
-    
   }
-  
-  
-  
-  
-  
-  # add solid lines on columns and rows-----------------------------------------------
-  
-  
-  addStyle(wb,sheetNm, style = createStyle(border = c("right"),   borderStyle = "thin"),
-           rows = 3:(total_rows+ max(header.row)), cols = thin.lines.cols, gridExpand = TRUE, stack = TRUE)
-  
-  
-  addStyle(wb,sheetNm, style = createStyle(border = c("bottom"),   borderStyle = "thin"),
-           rows = thin.lines.rows,  1:total_cols, gridExpand = TRUE, stack = TRUE)
-  
-  
-  
-  # merging cells -----------------------------------------------------------
-  if (all(is.na(merged.cells))==F){
+
+  # thin column lines (FIX 5 start at top_row; FIX 6 also the left edge of the next column)
+  addStyle(wb, sheetNm, style = createStyle(border = "right", borderStyle = "thin"),
+           rows = top_row:last_row, cols = thin.lines.cols, gridExpand = TRUE, stack = TRUE)
+  next_cols <- thin.lines.cols[thin.lines.cols + 1 <= total_cols] + 1
+  if (length(next_cols))
+    addStyle(wb, sheetNm, style = createStyle(border = "left", borderStyle = "thin"),
+             rows = top_row:last_row, cols = next_cols, gridExpand = TRUE, stack = TRUE)
+
+  # thin row lines (FIX 6 also the top edge of the next row)
+  addStyle(wb, sheetNm, style = createStyle(border = "bottom", borderStyle = "thin"),
+           rows = thin.lines.rows, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+  next_rows <- thin.lines.rows[thin.lines.rows + 1 <= last_row] + 1
+  if (length(next_rows))
+    addStyle(wb, sheetNm, style = createStyle(border = "top", borderStyle = "thin"),
+             rows = next_rows, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+
+  # merged grouping columns (FIX 2 - consecutive runs, nested within the columns to the left)
+  if (!all(is.na(merged.cells))) {
     for (i in merged.cells) {
-      
-      colnm <- names(xx)[i]
-      
-      temp <- xx %>%
-        ungroup() %>%
-        rownames_to_column("id") %>%
-        mutate(id = as.numeric(id)) %>%
-        dplyr::select(id, all_of(colnm)) %>%
-        group_by(across(all_of(colnm))) %>%
-        summarise(
-          end = max(id) + dat.row - 1,
-          .groups = "drop"
-        ) %>%
-        arrange(end) %>%
-        mutate(
-          start = lag(end) + 1 )%>%
-        mutate( start = if_else(is.na(start), dat.row, start)  )
-      
-      for (k in seq_len(nrow(temp))) {
-        
-        start_row <- temp$start[k]
-        end_row   <- temp$end[k]
-        
-        mergeCells(
-          wb, sheetNm,
-          cols = i,
-          rows = start_row:end_row
-        )
-        
-        addStyle(
-          wb, sheetNm,
-          style = createStyle(border = "bottom", borderStyle = "thin"),
-          rows = end_row,
-          cols = i:total_cols,
-          gridExpand = TRUE,
-          stack = TRUE
-        )
+      key <- do.call(paste, c(lapply(xx[seq_len(i)], as.character), sep = "\r"))
+      run <- cumsum(c(TRUE, key[-1] != key[-length(key)]))
+      ends   <- tapply(seq_along(run), run, max) + dat.row - 1
+      starts <- tapply(seq_along(run), run, min) + dat.row - 1
+      for (k in seq_along(ends)) {
+        if (ends[k] > starts[k]) mergeCells(wb, sheetNm, cols = i, rows = starts[k]:ends[k])
+        addStyle(wb, sheetNm, style = createStyle(border = "bottom", borderStyle = "thin"),
+                 rows = ends[k], cols = i:total_cols, gridExpand = TRUE, stack = TRUE)
+        if (ends[k] < last_row)   # FIX 6
+          addStyle(wb, sheetNm, style = createStyle(border = "top", borderStyle = "thin"),
+                   rows = ends[k] + 1, cols = i:total_cols, gridExpand = TRUE, stack = TRUE)
       }
     }
   }
-  
-  
-  
-  # thick border ------------------------------------------------------------
-  
-  addStyle(wb, sheetNm, style = createStyle(border = c("top"),   borderStyle = "medium"),
-           rows = min(header.row), cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
-  
-  
-  
-  addStyle(wb, sheetNm, style = createStyle(border = c("bottom"),   borderStyle = "medium"),
-           rows = total_rows+max(header.row), cols = 1:total_cols, gridExpand = TRUE, stack = TRUE) 
-  
-  addStyle(wb, sheetNm, style = createStyle(border = c("left"),   borderStyle = "medium"),
-           rows =min(header.row):(total_rows+min(header.row)), cols = 1, gridExpand = TRUE, stack = TRUE)
-  
-  addStyle(wb,sheetNm, style = createStyle(border = c("right"),   borderStyle = "medium"),
-           rows = min(header.row):(total_rows+max(header.row)), cols = total_cols, gridExpand = TRUE, stack = TRUE)
-  
-  
-  
-  
-  # caption on bold and size 11, wrapped to fit its merged width -------------
 
+  # medium outline (FIX 3 left edge to last_row; FIX 4 last_row from dat.row)
+  addStyle(wb, sheetNm, style = createStyle(border = "top", borderStyle = "medium"),
+           rows = top_row, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+  addStyle(wb, sheetNm, style = createStyle(border = "bottom", borderStyle = "medium"),
+           rows = last_row, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+  addStyle(wb, sheetNm, style = createStyle(border = "left", borderStyle = "medium"),
+           rows = top_row:last_row, cols = 1, gridExpand = TRUE, stack = TRUE)
+  addStyle(wb, sheetNm, style = createStyle(border = "right", borderStyle = "medium"),
+           rows = top_row:last_row, cols = total_cols, gridExpand = TRUE, stack = TRUE)
+
+  # caption
   caption_size <- 11
-
-  # Create a style for the caption
-  caption_style <-createStyle(fontColour ="#000000" ,   textDecoration = "bold", halign = "left", valign = "top",# "#135783"
-                              wrapText = TRUE, fontName = "Arial", fontSize = caption_size)
-
-
-  # currently can do Table XX in minnow col and the rest in back so will get the whole caption in minnow and need to manual change in excel
-  # Write the caption
-  writeData(wb, sheet = sheetNm,
-            x =caption,
-            startRow = 1, startCol = 1)
-
-  mergeCells(wb, sheet = sheetNm, cols = 1:(total_cols), rows = 1)
-
-  # Apply the style to the caption cell
-  addStyle(
-    wb,
-    sheet = sheetNm,
-    style = caption_style,
-    rows = 1,
-    cols = 1,
-    gridExpand = TRUE, stack = TRUE
-  )
-
-  # size the caption row to its real wrapped line count (same measure-then-size
-  # approach used for the note/footnote rows below), so a long caption wraps
-  # and shows in full instead of staying clipped to one default-height row
+  caption_style <- createStyle(fontColour = "#000000", textDecoration = "bold", halign = "left", valign = "top",
+                               wrapText = TRUE, fontName = "Arial", fontSize = caption_size)
+  writeData(wb, sheet = sheetNm, x = caption, startRow = 1, startCol = 1)
+  mergeCells(wb, sheet = sheetNm, cols = 1:total_cols, rows = 1)
+  addStyle(wb, sheet = sheetNm, style = caption_style, rows = 1, cols = 1, gridExpand = TRUE, stack = TRUE)
   if (!is.null(col.widths)) {
     caption_width_px <- sum(excel_width_to_px(col.widths))
-    caption_lines <- estimate_wrapped_lines(caption, caption_width_px, size = caption_size)
+    caption_lines <- estimate_wrapped_lines(caption, caption_width_px, font = "Arial", size = caption_size)   # FIX 7
     setRowHeights(wb, sheetNm, rows = 1, heights = pmax(15, caption_lines * 15 + 4))
   }
 
-
-  # add footnote ------------------------------------------------------------
-  for (i in 1:length(note)){
-
-    # Add a note below the table (2 rows after the last row of table)
-    note_row <- total_rows +  max(header.row) + 1 +i
-    note_text <- note[i]
-
-    # the first `shading.rows` lines are shading-legend lines: leave column 1
-    # blank (for a colour swatch the caller draws there) and start the text at
-    # column 2; every other note/footnote line is written to column 1 as before
+  # notes (FIX 4 position from last_row; wrapped, row height sized when col.widths is given)
+  for (i in seq_along(note)) {
+    note_row   <- last_row + 1 + i
+    note_text  <- note[i]
     is_shading <- i <= shading.rows
     note_col   <- if (is_shading) 2 else 1
     merge_cols <- if (is_shading) 2:total_cols else 1:total_cols
-
-    # Write the note
     writeData(wb, sheet = sheetNm, x = note_text, startRow = note_row, startCol = note_col)
-
-    # merge note across the available columns - starting at note_col, not a
-    # fixed column 2, so a non-shading note (written to column 1) actually gets
-    # merged with column 1 instead of leaving it as a separate, blank cell
     mergeCells(wb, sheet = sheetNm, cols = merge_cols, rows = note_row)
-    
-    # Optional: style the note (italic and smaller font)
-    note_style <-createStyle(fontName = "Arial", fontSize = 9,halign = "left")
-    addStyle(wb, sheet = sheetNm, style = note_style, rows = note_row, 
-             cols = 1:(total_cols), gridExpand = TRUE, stack = TRUE)
-    
+    addStyle(wb, sheet = sheetNm,
+             style = createStyle(fontName = "Arial", fontSize = 9, halign = "left", valign = "top", wrapText = TRUE),
+             rows = note_row, cols = 1:total_cols, gridExpand = TRUE, stack = TRUE)
+    if (!is.null(col.widths)) {
+      note_lines <- estimate_wrapped_lines(note_text, sum(excel_width_to_px(col.widths[merge_cols])),
+                                           font = "Arial", size = 9)
+      setRowHeights(wb, sheetNm, rows = note_row, heights = pmax(13, note_lines * 13 + 4))
+    }
   }
-  # 
-  # 
-  # # add footnote 2------------------------------------------------------------
-  # 
-  # # Add a note below the table (2 rows after the last row of table)
-  # note_row <- total_rows +    header.row +3
-  # note_text <-  paste0("a Total density and biomass are reported for all organisms in the sample.")
-  # 
-  # # Write the note
-  # writeData(wb, sheet = sheetNm, x = note_text, startRow = note_row, startCol = 1)
-  # 
-  # # Optional: merge note across all columns
-  # mergeCells(wb, sheet = sheetNm, cols = 1:(total_cols), rows = note_row)
-  # 
-  # # Optional: style the note (italic and smaller font)
-  # note_style <-createStyle(fontName = "Arial", fontSize = 9,halign = "left")
-  # addStyle(wb, sheet = sheetNm, style = note_style, rows = note_row, 
-  #          cols = 1:(total_cols), gridExpand = TRUE, stack = TRUE)
-  
-  # shdrows = xx %>%
-  #   rownames_to_column("id")%>%
-  #   filter(grepl("Exceedance", clean) ) %>%
-  #   mutate(id=as.numeric(id)+row-1)%>%
-  #   pull(id)
-  # 
-  # cols =4:total_cols
-  # # 
-  # 
-  # for (x in shdrows){
-  #   # x=45
-  #   conditionalFormatting(
-  #     wb, sheet = tbname,
-  #     cols = cols,
-  #     rows = x,
-  #     type = "expression",
-  #     rule = 'AND(TRIM(INDIRECT("RC",FALSE))<>"-", TRIM(INDIRECT("RC",FALSE))<>"0%")',
-  #     style = createStyle(bgFill = "#A5A5A5")
-  #   )
-  # }
-  # 
-  
-} 
+}
